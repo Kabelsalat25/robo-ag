@@ -28,11 +28,6 @@ alignment_speed = 0.12
 forward_speed = 0.14
 rear_escape_speed = 0.14
 
-# Maximale Zeit für den Vorwärtsantrieb, wenn der Ball direkt vorne ist
-forward_limit_ms = 1000
-forward_started_at = None
-
-
 def stop_motors():
     for channel in motor_channels:
         motor_controller.set_speed(channel, 0)
@@ -145,21 +140,7 @@ print("Robotersteuerung gestartet")
 
 while True:
     sector, strength = read_ball()
-
-    if sector == 12:
-        if forward_started_at is None:
-            forward_started_at = time.ticks_ms()
-
-        elapsed_ms = time.ticks_diff(time.ticks_ms(), forward_started_at)
-
-        if elapsed_ms > forward_limit_ms:
-            right, forward = 0.0, 0.0
-        else:
-            right, forward = choose_movement(sector)
-    else:
-        forward_started_at = None
-        right, forward = choose_movement(sector)
-
+    right, forward = choose_movement(sector)
     drive(right, forward)
 
     print(
