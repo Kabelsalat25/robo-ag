@@ -13,10 +13,13 @@ ir_address = 0x08
 # Motorkanäle am Motoron: M1, M2, M3
 motor_channels = (1, 2, 3)
 
-# Fahrtrichtungen der Räder, von vorne aus
-wheel_angles = (60, 180, 300)
+# Radpositionen, von vorne aus gegen den Uhrzeigersinn gemessen:
+# M1 vorne links = 60°, M2 hinten = 180°, M3 vorne rechts = 300°.
+wheel_position_angles = (60, 180, 300)
 
-# Bei Bedarf für einzelne Motoren auf -1 setzen, falls die Richtung verkehrt ist
+# Positive Motorbefehle drehen laut eurer Beschreibung alle Räder
+# im Uhrzeigersinn, von außen auf das jeweilige Rad gesehen.
+# Falls ein Motor andersherum eingebaut/verkabelt ist, für ihn -1 setzen.
 motor_polarity = (1, 1, 1)
 
 max_speed = 800
@@ -55,27 +58,36 @@ def read_ball():
         return None, 0
 
 
-def mix_wheels(right, forward):
+def mix_wheels(right, forward, turn=0.0):
     """
-    Berechnet die drei Radgeschwindigkeiten.
-    right: Bewegung nach rechts
-    forward: Bewegung nach vorne
+    Mischt Seitwärtsfahrt, Vorwärtsfahrt und Drehung für drei tangentiale Räder.
+
+    right: Bewegung nach rechts, -1.0 bis +1.0
+    forward: Bewegung nach vorne, -1.0 bis +1.0
+    turn: Drehbefehl; positiv bedeutet hier im Uhrzeigersinn
     """
     speeds = []
 
-    for angle in wheel_angles:
+    for angle in wheel_position_angles:
         radians = math.radians(angle)
 
-        # Projektion der gewünschten Bewegung auf die jeweilige Radachse
-        wheel_speed = right * math.sin(radians) + forward * math.cos(radians)
+        # Die Winkel beschreiben die Radpositionen. Bei tangentialer
+        # Radmontage fährt jedes Rad senkrecht zur Linie vom Roboterzentrum
+        # zum Rad. Bei der hier verwendeten Uhrzeigersinn-Konvention ergibt
+        # sich daraus diese Projektion der gewünschten Fahrbewegung.
+        translation_speed = right * math.cos(radians) + forward * math.sin(radians)
+
+        # Eine Drehung im Uhrzeigersinn verlangt bei allen drei tangentialen
+        # Rädern denselben zusätzlichen Drehanteil.
+        wheel_speed = translation_speed + turn
         speeds.append(wheel_speed)
 
     largest = max(1.0, max(abs(speed) for speed in speeds))
     return [speed / largest for speed in speeds]
 
 
-def drive(right, forward):
-    wheel_speeds = mix_wheels(right, forward)
+def drive(right, forward, turn=0.0):
+    wheel_speeds = mix_wheels(right, forward, turn)
 
     for index, channel in enumerate(motor_channels):
         speed = int(
@@ -141,13 +153,18 @@ print("Robotersteuerung gestartet")
 while True:
     sector, strength = read_ball()
     right, forward = choose_movement(sector)
-    drive(right, forward)
+
+    # Noch kein Gyro angeschlossen: turn bleibt 0.
+    # Später hier den Korrekturwert des Gyro-Reglers einsetzen.
+    turn = 0.0
+    drive(right, forward, turn)
 
     print(
         "Sektor:", sector,
         "Signal:", strength,
         "Rechts:", round(right, 2),
-        "Vorwaerts:", round(forward, 2)
+        "Vorwaerts:", round(forward, 2),
+        "Drehung:", round(turn, 2)
     )
 
     time.sleep_ms(loop_delay_ms)
